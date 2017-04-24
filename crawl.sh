@@ -125,9 +125,9 @@ else
     LEVENSHTEIN_PREFIXED_TAGS="${LEVENSHTEIN_PREFIXED_TAGS} ${LEVENSHTEIN_DISTANCE}___${REPOSITORY_TAG}"
   done
 
-  LEVENSHTEIN_PREFIXED_TAGS=$(echo ${LEVENSHTEIN_PREFIXED_TAGS} | sed 's/ /\n/g' | sort)
+  LEVENSHTEIN_PREFIXED_TAGS=$(echo ${LEVENSHTEIN_PREFIXED_TAGS} | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | sed 's/ /\n/g' | sort)
 
-  if [ $(echo "${LEVENSHTEIN_PREFIXED_TAGS}" | wc -l) -gt 1 ]; then
+  if [ $(echo -n "${LEVENSHTEIN_PREFIXED_TAGS}" | wc -l) -gt 1 ]; then
     printf "Your image for '${REGISTRY_HOST}/${REPOSITORY_NAME}' seems out of date. Several newer images are available (ordered by build date and levenshtein distance):\n"
 
     for NEW_TAG in ${LEVENSHTEIN_PREFIXED_TAGS}; do
@@ -136,7 +136,7 @@ else
 
     printf "\n"
     exit 2
-  elif [ $(echo "${LEVENSHTEIN_PREFIXED_TAGS}" | wc -l) -eq 1 ]; then
+  elif [ $(echo -n "${LEVENSHTEIN_PREFIXED_TAGS}" | wc -l) -eq 1 ]; then
     LATEST_REPOSITORY_TAG=$(echo "${LEVENSHTEIN_PREFIXED_TAGS}" | tail -n1 | sed 's/[0-9]___//')
     printf "A newer image for '${REGISTRY_HOST}/${REPOSITORY_NAME}' is available.\nCurrently you are on ${IMAGE_VERSION}. The latest available image is ${LATEST_REPOSITORY_TAG}.\n\n"
     exit 2
