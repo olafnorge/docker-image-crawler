@@ -69,7 +69,7 @@ if [ ${IS_PRIVATE_REGISTRY} -eq 1 ]; then
   REGISTRY_HOST="$(echo "${IMAGE_FROM}" | grep -oP '^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+(:[0-9]+)?')"
   REPOSITORY_NAME="$(echo "${IMAGE_FROM}" | grep -oP '^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+(:[0-9]+)?\K.*' | awk -F':' '{print $1}' | sed 's/^\///')"
   IMAGE_VERSION="$(echo "${IMAGE_FROM}" | grep -oP '^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+(:[0-9]+)?\K.*' | awk -F':' '{print $2}')"
-  IS_SHA="$(echo ${IMAGE_VERSION} | grep -oqP '([0-9a-f]{6})([0-9a-f]{1,34})' && echo 1 || echo 0)"
+  IS_SHA="$(echo ${IMAGE_VERSION} | grep -oqP '^([0-9a-f]{6})([0-9a-f]{1,34})$' && echo 1 || echo 0)"
 else
   REGISTRY_HOST="registry.hub.docker.com"
   REPOSITORY_NAME="$([ $(echo "${IMAGE_FROM}" | grep -c ':') -gt 0 ] && echo "${IMAGE_FROM}" | awk -F':' '{print $1}' || echo "${IMAGE_FROM}")"
@@ -79,8 +79,8 @@ fi
 
 printf "Processing '${REGISTRY_HOST}/${REPOSITORY_NAME}:${IMAGE_VERSION}'\n\n"
 
-if [[ ${IMAGE_VERSION} = 'latest' ]]; then
-  printf 'You are using the "latest" tag as upstream for '${REGISTRY_HOST}/${REPOSITORY_NAME}'. Please consider using semantic versioning @see: https://developers.redhat.com/blog/2016/02/24/10-things-to-avoid-in-docker-containers/\n\n'
+if [[ ${IMAGE_VERSION} =~ latest$ ]]; then
+  printf 'You are using the "'${IMAGE_VERSION}'" tag as upstream for '${REGISTRY_HOST}/${REPOSITORY_NAME}'. Please consider using semantic versioning @see: https://developers.redhat.com/blog/2016/02/24/10-things-to-avoid-in-docker-containers/\n\n'
   exit 0
 fi
 
