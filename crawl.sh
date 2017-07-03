@@ -33,7 +33,7 @@ while [ $# -gt 0 ]; do
         usage "Location of '${DOCKERFILE_BASE_PATH}/${DOCKERFILE_BASE_NAME}' is not valid."
       fi
 
-      IMAGE_FROM="$(grep -oP 'FROM[ ]+\K.*' ${DOCKERFILE_BASE_PATH}/${DOCKERFILE_BASE_NAME})"
+      IMAGE_FROM="$(grep -oP 'FROM[ ]+\K[^\s]*' ${DOCKERFILE_BASE_PATH}/${DOCKERFILE_BASE_NAME} | head -n1)"
       ;;
     --from=*)
       IMAGE_FROM="${1#*=}"
@@ -43,6 +43,9 @@ while [ $# -gt 0 ]; do
       ;;
     --pass=*)
       REPOSITORY_TOKEN="${1#*=}"
+      ;;
+    --levenshtein-distance=*)
+      MAX_LEVENSHTEIN_DISTANCE="${1#*=}"
       ;;
     *)
       usage
@@ -54,6 +57,7 @@ done
 REPOSITORY_USER=${REPOSITORY_USER:-}
 REPOSITORY_TOKEN=${REPOSITORY_TOKEN:-}
 IS_PRIVATE_REGISTRY=$(echo "${IMAGE_FROM}" | grep -oqP '^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+(:[0-9]+)?' && echo 1 || echo 0)
+MAX_LEVENSHTEIN_DISTANCE=${MAX_LEVENSHTEIN_DISTANCE:-5}
 
 if [ ${IS_PRIVATE_REGISTRY} -eq 1 ]; then
   if [ -z "${REPOSITORY_USER}" -o -z "${REPOSITORY_TOKEN}" ]; then
@@ -116,7 +120,7 @@ else
   for REPOSITORY_TAG in $(echo ${REPOSITORY_TAGS} | grep -oP "${IMAGE_VERSION} \K.*" | sed 's/ /\n/g'); do
     LEVENSHTEIN_DISTANCE=$(awk -f ${BASE_PATH}/levenshtein.awk ${IMAGE_VERSION} ${REPOSITORY_TAG} | grep -ioP '^levenshtein distance: \K[0-9]+')
 
-    if [ ${LEVENSHTEIN_DISTANCE} -gt 5 ]; then
+    if [ ${LEVENSHTEIN_DISTANCE} -gt ${MAX_LEVENSHTEIN_DISTANCE} ]; then
       continue
     elif [ ${LEVENSHTEIN_DISTANCE} -eq 0 ]; then
       continue
