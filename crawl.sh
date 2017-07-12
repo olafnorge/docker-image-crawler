@@ -7,9 +7,9 @@ function usage {
   printf "######## USAGE ########\n" >&2
   printf "You have two options to run this script:\n\n" >&2
   printf "Option 1: providing a Dockerfile to check if you use an up to date base image\n" >&2
-  printf "\t ${0} --dockerfile=<path to dockerfile> [--user=<registry username>] [--pass=<registry password>]\n\n" >&2
+  printf "\t ${0} --dockerfile=<path to dockerfile> [--user=<registry username>] [--pass=<registry password>] [--levenshtein-distance=<maximum levenshtein distance>]\n\n" >&2
   printf "Option 2: providing a 'FROM' string to check if you use an up to date image\n" >&2
-  printf "\t ${0} --from=<alpine:3.5> [--user=<registry username>] [--pass=<registry password>]\n\n" >&2
+  printf "\t ${0} --from=<alpine:3.5> [--user=<registry username>] [--pass=<registry password>] [--levenshtein-distance=<maximum levenshtein distance>]\n\n" >&2
   printf "If do not provide --user and/or --pass the script tries to take it from the environment.\n" >&2
   printf "You then need to 'export REPOSITORY_USER=<registry username>' and 'export REPOSITORY_TOKEN=<registry password>'\n" >&2
   printf "The username and password are only required if you either use a private registry or a private hub.docker.com repository.\n\n" >&2
@@ -115,9 +115,11 @@ if [ ${IS_SHA} -eq 1 ]; then
     printf "You are using the latest available image for '${REGISTRY_HOST}/${REPOSITORY_NAME}'.\n\n"
   fi
 else
-  LEVENSHTEIN_PREFIXED_TAGS=""
+  ORDERED_REPOSITORY_TAGS=""
 
-  for REPOSITORY_TAG in $(echo ${REPOSITORY_TAGS} | grep -oP "${IMAGE_VERSION} \K.*" | sed 's/ /\n/g'); do
+  REPOSITORY_TAGS="$(printf '%s\n' $(printf '%s ' $(printf '%s\n' ${REPOSITORY_TAGS} | sort -Vu) | grep -oP "${IMAGE_VERSION} \K.*"))"
+
+  for REPOSITORY_TAG in ${REPOSITORY_TAGS}; do
     LEVENSHTEIN_DISTANCE=$(awk -f ${BASE_PATH}/levenshtein.awk ${IMAGE_VERSION} ${REPOSITORY_TAG} | grep -ioP '^levenshtein distance: \K[0-9]+')
 
     if [ ${LEVENSHTEIN_DISTANCE} -gt ${MAX_LEVENSHTEIN_DISTANCE} ]; then
@@ -126,22 +128,22 @@ else
       continue
     fi
 
-    LEVENSHTEIN_PREFIXED_TAGS="${LEVENSHTEIN_PREFIXED_TAGS} ${LEVENSHTEIN_DISTANCE}___${REPOSITORY_TAG}"
+    ORDERED_REPOSITORY_TAGS="${ORDERED_REPOSITORY_TAGS} ${REPOSITORY_TAG}"
   done
 
-  LEVENSHTEIN_PREFIXED_TAGS=$(echo ${LEVENSHTEIN_PREFIXED_TAGS} | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | sed 's/ /\n/g' | sort)
+  ORDERED_REPOSITORY_TAGS=$(printf '%s\n' ${ORDERED_REPOSITORY_TAGS} | sort -Vur)
 
-  if [ $(echo -n "${LEVENSHTEIN_PREFIXED_TAGS}" | wc -l) -gt 1 ]; then
-    printf "Your image for '${REGISTRY_HOST}/${REPOSITORY_NAME}' seems out of date. Several newer images are available (ordered by build date and levenshtein distance):\n"
+  if [ $(echo -n "${ORDERED_REPOSITORY_TAGS}" | wc -l) -gt 1 ]; then
+    printf "Your image for '${REGISTRY_HOST}/${REPOSITORY_NAME}' seems out of date. Several (newer) images are available:\n"
 
-    for NEW_TAG in ${LEVENSHTEIN_PREFIXED_TAGS}; do
-      printf "\t'${REGISTRY_HOST}/${REPOSITORY_NAME}:$(echo ${NEW_TAG} | sed 's/[0-9]___//')'\n"
+    for NEW_TAG in ${ORDERED_REPOSITORY_TAGS}; do
+      printf "\t'${REGISTRY_HOST}/${REPOSITORY_NAME}:${NEW_TAG}'\n"
     done
 
     printf "\n"
     exit 2
-  elif [ $(echo -n "${LEVENSHTEIN_PREFIXED_TAGS}" | wc -l) -eq 1 ]; then
-    LATEST_REPOSITORY_TAG=$(echo "${LEVENSHTEIN_PREFIXED_TAGS}" | tail -n1 | sed 's/[0-9]___//')
+  elif [ $(echo -n "${ORDERED_REPOSITORY_TAGS}" | wc -l) -eq 1 ]; then
+    LATEST_REPOSITORY_TAG=$(echo "${ORDERED_REPOSITORY_TAGS}" | tail -n1)
     printf "A newer image for '${REGISTRY_HOST}/${REPOSITORY_NAME}' is available.\nCurrently you are on ${IMAGE_VERSION}. The latest available image is ${LATEST_REPOSITORY_TAG}.\n\n"
     exit 2
   fi

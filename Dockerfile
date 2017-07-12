@@ -6,6 +6,7 @@ RUN addgroup crawler \
     && apk add --no-cache --virtual .run-deps \
     		bash \
     		ca-certificates \
+    		coreutils \
     		curl \
     		grep \
     		jq \
